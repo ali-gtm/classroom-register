@@ -38,6 +38,7 @@
     scanRunBtn: document.getElementById("scanRunBtn"),
     scanStatus: document.getElementById("scanStatus"),
     scanReviewBody: document.getElementById("scanReviewBody"),
+    scanReviewSummary: document.getElementById("scanReviewSummary"),
     scanBackBtn: document.getElementById("scanBackBtn"),
     scanApplyBtn: document.getElementById("scanApplyBtn")
   };
@@ -406,13 +407,21 @@
     lines.forEach(function (line) {
       var cleaned = line.replace(/^\s*\d{1,3}[.)]\s*/, "").trim();
       if (!cleaned) return;
+      if (!/[A-Za-z]{2,}/.test(cleaned)) return;
+
       var match = cleaned.match(/^(.*\D)\D*(\d{1,3})\s*\/\s*\d{1,3}\s*$/) ||
         cleaned.match(/^(.*\D)\D*(\d{1,3})\s*$/);
-      if (!match) return;
-      var name = match[1].replace(/[\s.\-–—:]+$/, "");
-      var marks = Number(match[2]);
-      if (!name || name.length < 2 || isNaN(marks)) return;
-      rows.push({ name: name, obtained: marks });
+
+      if (match) {
+        var name = match[1].replace(/[\s.\-–—:]+$/, "");
+        var marks = Number(match[2]);
+        if (name && name.length >= 2 && !isNaN(marks)) {
+          rows.push({ name: name, obtained: marks, needsReview: false });
+          return;
+        }
+      }
+
+      rows.push({ name: cleaned, obtained: "", needsReview: true });
     });
     return rows;
   }
@@ -427,6 +436,7 @@
     els.scanTotalMarks.value = "";
     els.scanFileInput.value = "";
     els.scanStatus.textContent = "";
+    els.scanReviewSummary.textContent = "";
     els.scanRunBtn.disabled = true;
   }
 
@@ -447,12 +457,25 @@
     els.scanReviewStep.classList.remove("hidden");
     els.scanReviewBody.innerHTML = "";
 
+    var unclear = 0;
+
     rows.forEach(function (row) {
       var match = bestStudentMatch(cls, row.name);
       var tr = document.createElement("tr");
+      if (row.needsReview) { unclear++; tr.classList.add("scan-row-unclear"); }
 
       var rawTd = document.createElement("td");
-      rawTd.textContent = row.name;
+      var nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.className = "scan-name-input";
+      nameInput.value = row.name;
+      rawTd.appendChild(nameInput);
+      if (row.needsReview) {
+        var note = document.createElement("div");
+        note.className = "scan-row-note";
+        note.textContent = "Couldn't auto-read this line — check the name and enter marks";
+        rawTd.appendChild(note);
+      }
       tr.appendChild(rawTd);
 
       var studentTd = document.createElement("td");
@@ -490,6 +513,12 @@
 
       els.scanReviewBody.appendChild(tr);
     });
+
+    var total = rows.length;
+    var autoRead = total - unclear;
+    els.scanReviewSummary.textContent = unclear
+      ? "Found " + total + " line" + (total === 1 ? "" : "s") + " — " + autoRead + " read automatically, " + unclear + " need" + (unclear === 1 ? "s" : "") + " a manual check below (marked in red)."
+      : "Found " + total + " line" + (total === 1 ? "" : "s") + " and read all of them automatically. Check names/marks before applying.";
   }
 
   els.scanBtn.addEventListener("click", openScanModal);
@@ -542,13 +571,16 @@
     var total = Number(els.scanTotalMarks.value);
     if (!subjectName || !total) return;
 
+    var skippedForMarks = 0;
     var rows = els.scanReviewBody.querySelectorAll("tr");
     rows.forEach(function (tr) {
       var select = tr.querySelector(".scan-student-select");
       var marksInput = tr.querySelector(".scan-marks-input");
-      var rawName = tr.children[0].textContent;
+      var rawName = tr.querySelector(".scan-name-input").value.trim();
+      if (select.value === "skip") return;
+      if (marksInput.value.trim() === "" || !rawName) { skippedForMarks++; return; }
       var obtained = Number(marksInput.value);
-      if (select.value === "skip" || isNaN(obtained)) return;
+      if (isNaN(obtained)) { skippedForMarks++; return; }
 
       var student;
       if (select.value === "new") {
@@ -574,6 +606,14 @@
     saveState();
     render();
     closeScanModal();
+
+    if (skippedForMarks > 0) {
+      alert(
+        skippedForMarks + " row" + (skippedForMarks === 1 ? " wasn't" : "s weren't") +
+        " applied because the marks field was empty or a name was missing. " +
+        "Those students weren't added — scan again or add them by hand from their student card."
+      );
+    }
   });
 
   /* ---------- init ---------- */
