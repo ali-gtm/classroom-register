@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Classroom Register — Attendance &amp; Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="school-brand">
+    <img src="images/school-logo.png" alt="Peace Educational Institute logo" class="school-logo" />
+    <div>
+      <p class="school-name">Peace Educational Institute</p>
+      <p class="school-motto">Build a nation through education</p>
+    </div>
+  </div>
+  <div class="app-brand">
+    <p class="eyebrow">Muhammad Ali Shehzad</p>
+    <h1>Classroom Register</h1>
+  </div>
+  <button class="btn btn-primary" id="newClassBtn">+ New class</button>
+</header>
+
+<div class="new-class-form hidden" id="newClassForm">
+  <input type="text" id="newClassName" placeholder="Class name, e.g. Grade 9 — Section A" />
+  <button class="btn btn-primary" id="saveClassBtn">Add class</button>
+  <button class="btn btn-ghost" id="cancelClassBtn">Cancel</button>
+</div>
+
+<nav class="class-tabs" id="classTabs"></nav>
+
+<main id="app">
+  <div class="empty-state" id="emptyState">
+    <p class="eyebrow">No class yet</p>
+    <h2>Add your first class to get started.</h2>
+    <p>Create a class, add students, then track their attendance and results here.</p>
+  </div>
+
+  <div class="class-view hidden" id="classView">
+    <div class="view-toggle">
+      <button class="toggle-btn active" data-view="results">Results</button>
+      <button class="toggle-btn" data-view="attendance">Attendance</button>
+      <button class="btn-delete-class" id="deleteClassBtn">Delete this class</button>
+    </div>
+
+    <div class="add-student-row">
+      <input type="text" id="newStudentName" placeholder="Student name" />
+      <button class="btn btn-secondary" id="addStudentBtn">+ Add student</button>
+    </div>
+
+    <section id="resultsPanel" class="panel">
+      <div class="student-cards" id="studentCards"></div>
+    </section>
+
+    <section id="attendancePanel" class="panel hidden">
+      <div class="attendance-controls">
+        <label for="attendanceDate">Date</label>
+        <input type="date" id="attendanceDate" />
+      </div>
+      <div class="attendance-table-wrap">
+        <table class="attendance-table" id="attendanceTable">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Status</th>
+              <th>Overall attendance</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<template id="studentCardTemplate">
+  <article class="student-card">
+    <div class="student-card-head">
+      <h3 class="student-name"></h3>
+      <button class="icon-btn delete-student-btn" aria-label="Remove student">&times;</button>
+    </div>
+    <div class="score-row">
+      <div class="score-percentage">
+        <span class="pct-value">0%</span>
+      </div>
+      <div class="score-meta">
+        <span class="grade-badge">-</span>
+        <span class="pass-stamp">-</span>
+      </div>
+    </div>
+    <table class="subject-table">
+      <thead>
+        <tr><th>Subject</th><th>Obtained</th><th>Total</th><th></th></tr>
+      </thead>
+      <tbody class="subject-rows"></tbody>
+    </table>
+    <div class="add-subject-row">
+      <input type="text" class="subject-name-input" placeholder="Subject" />
+      <input type="number" class="subject-obtained-input" placeholder="Obtained" min="0" />
+      <input type="number" class="subject-total-input" placeholder="Total" min="1" />
+      <button class="btn btn-ghost add-subject-btn">+ Add</button>
+    </div>
+  </article>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>
