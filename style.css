@@ -504,6 +504,11 @@ main { padding: 6vh 6vw 10vh; max-width: 1100px; margin: 0 auto; }
 
 .attendance-table tr:hover td { background: var(--sky-50); }
 
+.att-status-group {
+  display: inline-flex;
+  gap: 8px;
+}
+
 .att-toggle {
   font-family: var(--font-mono);
   font-size: 12px;
@@ -514,21 +519,27 @@ main { padding: 6vh 6vw 10vh; max-width: 1100px; margin: 0 auto; }
   background: var(--white);
   cursor: pointer;
   color: var(--ink-600);
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .att-toggle:active { transform: scale(0.94); }
 
-.att-toggle.present {
-  color: var(--pass-green);
+.att-toggle.present { color: var(--pass-green); border-color: var(--pass-green); }
+.att-toggle.absent { color: var(--fail-red); border-color: var(--fail-red); }
+
+.att-toggle.present:hover { background: var(--pass-green-bg); }
+.att-toggle.absent:hover { background: var(--fail-red-bg); }
+
+.att-toggle.present.active {
+  color: var(--white);
+  background: var(--pass-green);
   border-color: var(--pass-green);
-  background: var(--pass-green-bg);
 }
 
-.att-toggle.absent {
-  color: var(--fail-red);
+.att-toggle.absent.active {
+  color: var(--white);
+  background: var(--fail-red);
   border-color: var(--fail-red);
-  background: var(--fail-red-bg);
 }
 
 /* ---------- toppers ---------- */

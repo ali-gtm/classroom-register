@@ -232,22 +232,34 @@
 
       var statusTd = document.createElement("td");
       var status = (student.attendance || {})[date];
-      var toggle = document.createElement("button");
-      toggle.className = "att-toggle" + (status ? " " + status : "");
-      toggle.textContent = status ? (status === "present" ? "Present" : "Absent") : "Mark";
-      toggle.addEventListener("click", function () {
+
+      function setStatus(next) {
         student.attendance = student.attendance || {};
-        var current = student.attendance[date];
-        var next = current === "present" ? "absent" : current === "absent" ? null : "present";
-        if (next === null) {
+        if (student.attendance[date] === next) {
           delete student.attendance[date];
         } else {
           student.attendance[date] = next;
         }
         saveState();
         renderAttendanceTable(cls);
-      });
-      statusTd.appendChild(toggle);
+      }
+
+      var statusGroup = document.createElement("div");
+      statusGroup.className = "att-status-group";
+
+      var presentBtn = document.createElement("button");
+      presentBtn.className = "att-toggle present" + (status === "present" ? " active" : "");
+      presentBtn.textContent = "Present";
+      presentBtn.addEventListener("click", function () { setStatus("present"); });
+      statusGroup.appendChild(presentBtn);
+
+      var absentBtn = document.createElement("button");
+      absentBtn.className = "att-toggle absent" + (status === "absent" ? " active" : "");
+      absentBtn.textContent = "Absent";
+      absentBtn.addEventListener("click", function () { setStatus("absent"); });
+      statusGroup.appendChild(absentBtn);
+
+      statusTd.appendChild(statusGroup);
       row.appendChild(statusTd);
 
       var overallTd = document.createElement("td");
