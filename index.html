@@ -51,9 +51,14 @@
     <div class="add-student-row">
       <input type="text" id="newStudentName" placeholder="Student name" />
       <button class="btn btn-secondary" id="addStudentBtn">+ Add student</button>
+      <button class="btn btn-ghost" id="scanBtn">📷 Scan result sheet</button>
     </div>
 
     <section id="resultsPanel" class="panel">
+      <section class="toppers hidden" id="toppersSection">
+        <h3 class="toppers-title">🏆 Top performers</h3>
+        <div class="topper-cards" id="topperCards"></div>
+      </section>
       <div class="student-cards" id="studentCards"></div>
     </section>
 
@@ -107,6 +112,47 @@
     </div>
   </article>
 </template>
+
+<div class="scan-modal hidden" id="scanModal">
+  <div class="scan-modal-inner">
+    <div class="scan-modal-head">
+      <h3>Scan subject result sheet</h3>
+      <button class="icon-btn" id="scanCloseBtn" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="scan-modal-body" id="scanSetupStep">
+      <p class="scan-hint">Upload a photo of one subject's result list for the whole class. Marks will be matched to students by name so you can check them before saving.</p>
+      <label class="scan-field">
+        Subject name
+        <input type="text" id="scanSubjectName" placeholder="e.g. Mathematics" />
+      </label>
+      <label class="scan-field">
+        Total marks for this subject
+        <input type="number" id="scanTotalMarks" placeholder="100" min="1" />
+      </label>
+      <label class="scan-field">
+        Photo of the result list
+        <input type="file" id="scanFileInput" accept="image/*" capture="environment" />
+      </label>
+      <button class="btn btn-primary" id="scanRunBtn" disabled>Scan photo</button>
+      <p class="scan-status" id="scanStatus"></p>
+    </div>
+
+    <div class="scan-modal-body hidden" id="scanReviewStep">
+      <p class="scan-hint">Check every row — photo scans can misread names or numbers. Fix or skip rows before applying.</p>
+      <div class="scan-review-wrap">
+        <table class="scan-review-table" id="scanReviewTable">
+          <thead><tr><th>Detected text</th><th>Student</th><th>Marks</th></tr></thead>
+          <tbody id="scanReviewBody"></tbody>
+        </table>
+      </div>
+      <div class="scan-review-actions">
+        <button class="btn btn-ghost" id="scanBackBtn">Back</button>
+        <button class="btn btn-primary" id="scanApplyBtn">Apply to class</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

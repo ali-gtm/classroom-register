@@ -24,7 +24,22 @@
     attendanceDate: document.getElementById("attendanceDate"),
     attendanceBody: document.getElementById("attendanceBody"),
     studentCardTemplate: document.getElementById("studentCardTemplate"),
-    toggleBtns: document.querySelectorAll(".toggle-btn")
+    toggleBtns: document.querySelectorAll(".toggle-btn"),
+    toppersSection: document.getElementById("toppersSection"),
+    topperCards: document.getElementById("topperCards"),
+    scanBtn: document.getElementById("scanBtn"),
+    scanModal: document.getElementById("scanModal"),
+    scanCloseBtn: document.getElementById("scanCloseBtn"),
+    scanSetupStep: document.getElementById("scanSetupStep"),
+    scanReviewStep: document.getElementById("scanReviewStep"),
+    scanSubjectName: document.getElementById("scanSubjectName"),
+    scanTotalMarks: document.getElementById("scanTotalMarks"),
+    scanFileInput: document.getElementById("scanFileInput"),
+    scanRunBtn: document.getElementById("scanRunBtn"),
+    scanStatus: document.getElementById("scanStatus"),
+    scanReviewBody: document.getElementById("scanReviewBody"),
+    scanBackBtn: document.getElementById("scanBackBtn"),
+    scanApplyBtn: document.getElementById("scanApplyBtn")
   };
 
   function loadState() {
@@ -99,8 +114,33 @@
     }
     els.emptyState.classList.add("hidden");
     els.classView.classList.remove("hidden");
+    renderToppers(cls);
     renderStudentCards(cls);
     renderAttendanceTable(cls);
+  }
+
+  function renderToppers(cls) {
+    els.topperCards.innerHTML = "";
+    var ranked = cls.students
+      .map(function (s) { return { student: s, stats: computeStudentStats(s) }; })
+      .filter(function (r) { return r.stats.pass !== null; })
+      .sort(function (a, b) { return b.stats.pct - a.stats.pct; })
+      .slice(0, 3);
+
+    els.toppersSection.classList.toggle("hidden", ranked.length === 0);
+
+    var medals = ["gold", "silver", "bronze"];
+    var labels = ["1st", "2nd", "3rd"];
+    ranked.forEach(function (r, idx) {
+      var card = document.createElement("div");
+      card.className = "topper-card " + medals[idx];
+      card.innerHTML =
+        "<span class=\"topper-rank\">" + labels[idx] + "</span>" +
+        "<span class=\"topper-name\">" + escapeHtml(r.student.name) + "</span>" +
+        "<span class=\"topper-pct\">" + r.stats.pct + "%</span>" +
+        "<span class=\"topper-grade\">Grade " + r.stats.grade + "</span>";
+      els.topperCards.appendChild(card);
+    });
   }
 
   function renderClassTabs() {
@@ -304,6 +344,236 @@
   els.attendanceDate.addEventListener("change", function () {
     var cls = getActiveClass();
     if (cls) renderAttendanceTable(cls);
+  });
+
+  /* ---------- result sheet scanning (OCR) ---------- */
+
+  var TESSERACT_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js";
+
+  function ensureTesseract(callback) {
+    if (window.Tesseract) { callback(); return; }
+    var existing = document.getElementById("tesseractScript");
+    if (existing) {
+      existing.addEventListener("load", callback);
+      return;
+    }
+    var script = document.createElement("script");
+    script.id = "tesseractScript";
+    script.src = TESSERACT_SRC;
+    script.onload = function () { callback(); };
+    script.onerror = function () {
+      els.scanStatus.textContent = "Couldn't load the scanning library. Check your internet connection and try again.";
+      els.scanRunBtn.disabled = false;
+    };
+    document.head.appendChild(script);
+  }
+
+  function normalizeName(name) {
+    return String(name).toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  function levenshtein(a, b) {
+    var m = a.length, n = b.length;
+    var dp = [];
+    var i, j;
+    for (i = 0; i <= m; i++) { dp.push([i]); }
+    for (j = 0; j <= n; j++) { dp[0][j] = j; }
+    for (i = 1; i <= m; i++) {
+      for (j = 1; j <= n; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+    return dp[m][n];
+  }
+
+  function bestStudentMatch(cls, rawName) {
+    var target = normalizeName(rawName);
+    if (!target) return null;
+    var best = null, bestDist = Infinity;
+    cls.students.forEach(function (s) {
+      var dist = levenshtein(target, normalizeName(s.name));
+      if (dist < bestDist) { bestDist = dist; best = s; }
+    });
+    var threshold = Math.max(2, Math.floor(target.length * 0.3));
+    return best && bestDist <= threshold ? best : null;
+  }
+
+  function parseResultText(text) {
+    var lines = text.split(/\r?\n/);
+    var rows = [];
+    lines.forEach(function (line) {
+      var cleaned = line.replace(/^\s*\d{1,3}[.)]\s*/, "").trim();
+      if (!cleaned) return;
+      var match = cleaned.match(/^(.*\D)\D*(\d{1,3})\s*\/\s*\d{1,3}\s*$/) ||
+        cleaned.match(/^(.*\D)\D*(\d{1,3})\s*$/);
+      if (!match) return;
+      var name = match[1].replace(/[\s.\-–—:]+$/, "");
+      var marks = Number(match[2]);
+      if (!name || name.length < 2 || isNaN(marks)) return;
+      rows.push({ name: name, obtained: marks });
+    });
+    return rows;
+  }
+
+  function openScanModal() {
+    var cls = getActiveClass();
+    if (!cls) return;
+    els.scanModal.classList.remove("hidden");
+    els.scanSetupStep.classList.remove("hidden");
+    els.scanReviewStep.classList.add("hidden");
+    els.scanSubjectName.value = "";
+    els.scanTotalMarks.value = "";
+    els.scanFileInput.value = "";
+    els.scanStatus.textContent = "";
+    els.scanRunBtn.disabled = true;
+  }
+
+  function closeScanModal() {
+    els.scanModal.classList.add("hidden");
+  }
+
+  function updateScanRunEnabled() {
+    els.scanRunBtn.disabled = !(
+      els.scanSubjectName.value.trim() &&
+      els.scanTotalMarks.value &&
+      els.scanFileInput.files.length
+    );
+  }
+
+  function openReviewStep(cls, rows) {
+    els.scanSetupStep.classList.add("hidden");
+    els.scanReviewStep.classList.remove("hidden");
+    els.scanReviewBody.innerHTML = "";
+
+    rows.forEach(function (row) {
+      var match = bestStudentMatch(cls, row.name);
+      var tr = document.createElement("tr");
+
+      var rawTd = document.createElement("td");
+      rawTd.textContent = row.name;
+      tr.appendChild(rawTd);
+
+      var studentTd = document.createElement("td");
+      var select = document.createElement("select");
+      select.className = "scan-student-select";
+
+      var newOpt = document.createElement("option");
+      newOpt.value = "new";
+      newOpt.textContent = "+ New student: \"" + row.name + "\"";
+      select.appendChild(newOpt);
+
+      var skipOpt = document.createElement("option");
+      skipOpt.value = "skip";
+      skipOpt.textContent = "Skip this row";
+      select.appendChild(skipOpt);
+
+      cls.students.forEach(function (s) {
+        var opt = document.createElement("option");
+        opt.value = String(s.id);
+        opt.textContent = s.name;
+        select.appendChild(opt);
+      });
+      select.value = match ? String(match.id) : "new";
+      studentTd.appendChild(select);
+      tr.appendChild(studentTd);
+
+      var marksTd = document.createElement("td");
+      var marksInput = document.createElement("input");
+      marksInput.type = "number";
+      marksInput.min = "0";
+      marksInput.value = row.obtained;
+      marksInput.className = "scan-marks-input";
+      marksTd.appendChild(marksInput);
+      tr.appendChild(marksTd);
+
+      els.scanReviewBody.appendChild(tr);
+    });
+  }
+
+  els.scanBtn.addEventListener("click", openScanModal);
+  els.scanCloseBtn.addEventListener("click", closeScanModal);
+  els.scanBackBtn.addEventListener("click", function () {
+    els.scanReviewStep.classList.add("hidden");
+    els.scanSetupStep.classList.remove("hidden");
+    els.scanRunBtn.disabled = false;
+    els.scanStatus.textContent = "";
+  });
+
+  els.scanSubjectName.addEventListener("input", updateScanRunEnabled);
+  els.scanTotalMarks.addEventListener("input", updateScanRunEnabled);
+  els.scanFileInput.addEventListener("change", updateScanRunEnabled);
+
+  els.scanRunBtn.addEventListener("click", function () {
+    var cls = getActiveClass();
+    var file = els.scanFileInput.files[0];
+    if (!cls || !file) return;
+
+    els.scanRunBtn.disabled = true;
+    els.scanStatus.textContent = "Loading scanner…";
+
+    ensureTesseract(function () {
+      els.scanStatus.textContent = "Reading photo… this can take a moment.";
+      Tesseract.recognize(file, "eng")
+        .then(function (result) {
+          var text = (result && result.data && result.data.text) || "";
+          var rows = parseResultText(text);
+          if (!rows.length) {
+            els.scanStatus.textContent = "Couldn't find any name/marks pairs in that photo. Try a clearer, well-lit photo, or enter marks manually.";
+            els.scanRunBtn.disabled = false;
+            return;
+          }
+          els.scanStatus.textContent = "";
+          openReviewStep(cls, rows);
+        })
+        .catch(function (err) {
+          console.error(err);
+          els.scanStatus.textContent = "Scanning failed. Try again with a clearer photo.";
+          els.scanRunBtn.disabled = false;
+        });
+    });
+  });
+
+  els.scanApplyBtn.addEventListener("click", function () {
+    var cls = getActiveClass();
+    if (!cls) return;
+    var subjectName = els.scanSubjectName.value.trim();
+    var total = Number(els.scanTotalMarks.value);
+    if (!subjectName || !total) return;
+
+    var rows = els.scanReviewBody.querySelectorAll("tr");
+    rows.forEach(function (tr) {
+      var select = tr.querySelector(".scan-student-select");
+      var marksInput = tr.querySelector(".scan-marks-input");
+      var rawName = tr.children[0].textContent;
+      var obtained = Number(marksInput.value);
+      if (select.value === "skip" || isNaN(obtained)) return;
+
+      var student;
+      if (select.value === "new") {
+        student = { id: state.nextStudentId++, name: rawName, subjects: [], attendance: {} };
+        cls.students.push(student);
+      } else {
+        student = cls.students.find(function (s) { return String(s.id) === select.value; });
+      }
+      if (!student) return;
+
+      student.subjects = student.subjects || [];
+      var existing = student.subjects.find(function (s) {
+        return s.name.toLowerCase() === subjectName.toLowerCase();
+      });
+      if (existing) {
+        existing.obtained = obtained;
+        existing.total = total;
+      } else {
+        student.subjects.push({ name: subjectName, obtained: obtained, total: total });
+      }
+    });
+
+    saveState();
+    render();
+    closeScanModal();
   });
 
   /* ---------- init ---------- */
