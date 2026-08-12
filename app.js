@@ -401,6 +401,17 @@
     return best && bestDist <= threshold ? best : null;
   }
 
+  var RESULT_SHEET_NOISE = /\b(result|roll\s*no\.?|roll\s*number|s\.?\s*no\.?|sr\.?\s*no\.?|total|obtained|signature|class\s*teacher|teacher|subject|section|school|institute|academy|remarks|attendance|percentage|percent|report\s*card|examination|principal|headmaster|page\s*\d)\b/i;
+
+  function matchNameAndMarks(text) {
+    // "<stray bullet noise> Name: 85/100" - captures the capitalized
+    // name and ignores any junk (misread bullet glyphs) before it.
+    var colonMatch = text.match(/([A-Z][a-zA-Z'’-]*(?:\s+[A-Z][a-zA-Z'’-]*){0,2})\s*:\s*(\d{1,3})\s*\/\s*\d{1,3}\s*$/);
+    return colonMatch ||
+      text.match(/^(.*\D)\D*(\d{1,3})\s*\/\s*\d{1,3}\s*[)\]]*\.?\s*$/) ||
+      text.match(/^(.*\D)\D*(\d{1,3})\s*[)\]]*\.?\s*$/);
+  }
+
   function parseResultText(text) {
     var lines = text.split(/\r?\n/);
     var rows = [];
@@ -408,12 +419,18 @@
       var cleaned = line.replace(/^\s*\d{1,3}[.)]\s*/, "").trim();
       if (!cleaned) return;
       if (!/[A-Za-z]{2,}/.test(cleaned)) return;
+      if (RESULT_SHEET_NOISE.test(cleaned)) return;
 
-      var match = cleaned.match(/^(.*\D)\D*(\d{1,3})\s*\/\s*\d{1,3}\s*$/) ||
-        cleaned.match(/^(.*\D)\D*(\d{1,3})\s*$/);
+      // Try the line as-is first, so marks written inside brackets, e.g.
+      // "Ali Raza (88)", aren't lost. Only if that fails, retry with a
+      // trailing "(Grade: A+)"-style parenthetical stripped off, for
+      // lines where the marks come before that kind of decoration.
+      var stripped = cleaned.replace(/\s*\([^)]*\)\s*$/, "").trim();
+      var match = matchNameAndMarks(cleaned) ||
+        (stripped !== cleaned ? matchNameAndMarks(stripped) : null);
 
       if (match) {
-        var name = match[1].replace(/[\s.\-–—:]+$/, "");
+        var name = match[1].replace(/[\s.\-–—:()\[\]]+$/, "");
         var marks = Number(match[2]);
         if (name && name.length >= 2 && !isNaN(marks)) {
           rows.push({ name: name, obtained: marks, needsReview: false });
@@ -421,6 +438,7 @@
         }
       }
 
+      if (!/\d/.test(cleaned)) return;
       rows.push({ name: cleaned, obtained: "", needsReview: true });
     });
     return rows;
