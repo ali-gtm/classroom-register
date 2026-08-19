@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1478b3" />
 <title>Classroom Register — Attendance &amp; Results</title>
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -152,6 +156,14 @@
         <button class="btn btn-primary" id="scanApplyBtn">Apply to class</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="installToast" class="install-toast hidden">
+  <span>Install Classroom Register for quick, offline-ready access</span>
+  <div>
+    <button id="installBtn" class="btn btn-primary">Install</button>
+    <button id="dismissInstallBtn" class="btn btn-ghost">Not now</button>
   </div>
 </div>
 

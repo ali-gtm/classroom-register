@@ -646,6 +646,43 @@
     }
   });
 
+  /* ---------- install prompt ---------- */
+
+  var INSTALL_DISMISS_KEY = "classroom-register-install-dismissed";
+  var deferredInstallPrompt = null;
+  var installToast = document.getElementById("installToast");
+  var installBtn = document.getElementById("installBtn");
+  var dismissInstallBtn = document.getElementById("dismissInstallBtn");
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    var dismissed = false;
+    try { dismissed = localStorage.getItem(INSTALL_DISMISS_KEY) === "1"; } catch (err) {}
+    if (!dismissed) installToast.classList.remove("hidden");
+  });
+
+  installBtn.addEventListener("click", function () {
+    installToast.classList.add("hidden");
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      deferredInstallPrompt = null;
+    }
+  });
+
+  dismissInstallBtn.addEventListener("click", function () {
+    installToast.classList.add("hidden");
+    try { localStorage.setItem(INSTALL_DISMISS_KEY, "1"); } catch (e) {}
+  });
+
+  /* ---------- service worker ---------- */
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./service-worker.js").catch(function () {});
+    });
+  }
+
   /* ---------- init ---------- */
 
   els.attendanceDate.value = todayISO();
